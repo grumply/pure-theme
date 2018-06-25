@@ -1,0 +1,25 @@
+name:                pure-theme
+version:             0.1.0.0
+synopsis:            Styled views
+homepage:            github.com/grumply/pure-theme
+license:             BSD3
+license-file:        LICENSE
+author:              Sean Mackenzie
+maintainer:          sean@grump.ly
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+      Pure.Theme
+
+  build-depends:
+      base >=4.8
+    , pure
+    , pure-css
+    , pure-txt
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
