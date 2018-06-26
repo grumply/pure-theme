@@ -26,6 +26,7 @@ instance Default NS where
   def = NS ""
 
 class Typeable t => Themeable t where
+  {-# NOINLINE themeWrittenRef #-}
   themeWrittenRef :: t -> IORef Bool
   themeWrittenRef _ = unsafePerformIO $ newIORef False
   namespace :: t -> NS
