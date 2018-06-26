@@ -1,7 +1,6 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
+{-# LANGUAGE OverloadedStrings, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
 module Pure.Theme
-  ( NS(..)
-  , Themeable(..)
+  ( Themeable(..)
   , themed
   , pattern Theme
   ) where
@@ -18,39 +17,34 @@ import Control.Monad
 import Data.Foldable
 import Data.IORef
 import Data.Monoid
-import Data.Typeable
+import Data.Unique
 import System.IO.Unsafe
 
-newtype NS = NS { getNamespace :: Txt }
-instance Default NS where
-  def = NS ""
-
-class Typeable t => Themeable t where
+class Themeable t where
   {-# NOINLINE themeWrittenRef #-}
   themeWrittenRef :: t -> IORef Bool
   themeWrittenRef _ = unsafePerformIO $ newIORef False
-  namespace :: t -> NS
-  namespace _ = def
-  prefix :: t -> Txt
-  prefix ta = getNamespace (namespace ta) <> "-" <> toTxt (tyCon (undefined :: t))
+  {-# NOINLINE namespace #-}
+  namespace :: t -> Txt
+  namespace _ = "t_" <> unsafePerformIO (toTxt . show . hashUnique <$> newUnique)
   theme :: Txt -> t -> CSS ()
   theme _ _ = return ()
 
 {-# NOINLINE addTheme #-}
-addTheme :: forall t. (Typeable t, Themeable t) => Txt -> t -> ()
+addTheme :: (Themeable t) => Txt -> t -> ()
 addTheme pre t = unsafePerformIO $ do
   let p = "." <> pre
   tw <- atomicModifyIORef' (themeWrittenRef t) (True,)
-  unless tw $ inject Pure.head (Attribute "data-pmui-theme" pre (css (theme p t)))
+  unless tw $ inject Pure.head (Attribute "data-pure-theme" pre (css (theme p t)))
 
-themed_ :: forall b t. (Typeable t, Themeable t, HasFeatures b) => t -> b -> (Txt,b)
+themed_ :: (Themeable t, HasFeatures b) => t -> b -> (Txt,b)
 themed_ t b = 
-  let pre = prefix t
+  let pre = namespace t
   in addTheme pre t `seq` (pre,Class pre b)
 
-themed :: (Typeable t, Themeable t, HasFeatures b) => t -> b -> b
+themed :: (Themeable t, HasFeatures b) => t -> b -> b
 themed t b = snd $ themed_ t b
 
-pattern Theme :: (HasFeatures b, Typeable t, Themeable t) => t -> b -> b
+pattern Theme :: (HasFeatures b, Themeable t) => t -> b -> b
 pattern Theme t b <- (const undefined &&& id -> (t,b)) where
   Theme t b = themed t b
