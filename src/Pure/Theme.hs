@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
 module Pure.Theme
-  ( Namespace(..)
+  ( NS(..)
   , Themeable(..)
   , themed
   , pattern Theme
