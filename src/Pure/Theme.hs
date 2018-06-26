@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
 module Pure.Theme
   ( Namespace(..)
   , Themeable(..)
@@ -38,16 +38,13 @@ class Typeable t => Themeable t where
 {-# NOINLINE addTheme #-}
 addTheme :: forall t. (Typeable t, Themeable t) => Txt -> t -> ()
 addTheme pre t = unsafePerformIO $ do
-  let tc = toTxt (tyCon t)
-      p = "." <> pre
-  tw <- atomicModifyIORef' (themeWrittenRef t) $ \b -> (True,b)
-  unless tw $ do
-    inject Pure.head (Attribute "data-pmui-theme" tc $ css (theme p t))
+  let p = "." <> pre
+  tw <- atomicModifyIORef' (themeWrittenRef t) (True,)
+  unless tw $ inject Pure.head (Attribute "data-pmui-theme" pre (css (theme p t)))
 
 themed_ :: forall b t. (Typeable t, Themeable t, HasFeatures b) => t -> b -> (Txt,b)
 themed_ t b = 
-  let pr = Proxy :: Proxy b
-      pre = prefix t
+  let pre = prefix t
   in addTheme pre t `seq` (pre,Class pre b)
 
 themed :: (Typeable t, Themeable t, HasFeatures b) => t -> b -> b
