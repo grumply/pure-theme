@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
 module Pure.Theme
   ( Themeable(..)
   , themed
@@ -11,30 +11,40 @@ import Pure
 -- from pure-css
 import Pure.Data.CSS
 
+-- from pure-txt-trie
+import Pure.Data.Txt.Trie as Trie
+
 -- from base
 import Control.Arrow ((&&&))
 import Control.Monad
 import Data.Foldable
 import Data.IORef
 import Data.Monoid
+import Data.Typeable
 import Data.Unique
 import System.IO.Unsafe
 
-class Themeable t where
-  {-# NOINLINE themeWrittenRef #-}
-  themeWrittenRef :: t -> IORef Bool
-  themeWrittenRef _ = unsafePerformIO $ newIORef False
-  {-# NOINLINE namespace #-}
+import Data.Hashable
+import Debug.Trace
+
+{-# NOINLINE activeThemes #-}
+activeThemes :: IORef (TxtTrie ())
+activeThemes = unsafePerformIO $ newIORef Trie.empty
+
+class Typeable t => Themeable t where
   namespace :: t -> Txt
-  namespace _ = "t_" <> unsafePerformIO (toTxt . show . hashUnique <$> newUnique)
+  namespace _ = toTxt (tyCon (undefined :: t)) <> "_" <> toTxt (abs $ hash (typeOf (undefined :: t)))
   theme :: Txt -> t -> CSS ()
   theme _ _ = return ()
 
 {-# NOINLINE addTheme #-}
-addTheme :: (Themeable t) => Txt -> t -> ()
+addTheme :: Themeable t => Txt -> t -> ()
 addTheme pre t = unsafePerformIO $ do
   let p = "." <> pre
-  tw <- atomicModifyIORef' (themeWrittenRef t) (True,)
+  tw <- atomicModifyIORef' activeThemes $ \trie -> 
+          if Trie.lookup pre trie == Just ()
+            then (trie,True)
+            else (Trie.insert pre () trie,False)
   unless tw $ inject Pure.head (Attribute "data-pure-theme" pre (css (theme p t)))
 
 themed_ :: (Themeable t, HasFeatures b) => t -> b -> (Txt,b)
