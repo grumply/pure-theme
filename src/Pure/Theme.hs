@@ -1,8 +1,9 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification #-}
 module Pure.Theme
   ( Themeable(..)
   , themed
   , pattern Theme
+  , SomeT(..)
   ) where
 
 -- from pure
@@ -58,3 +59,5 @@ themed t b = snd $ themed_ t b
 pattern Theme :: (HasFeatures b, Themeable t) => t -> b -> b
 pattern Theme t b <- (const undefined &&& id -> (t,b)) where
   Theme t b = themed t b
+
+data SomeT = forall t. Themeable t => SomeT t
