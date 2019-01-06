@@ -1,6 +1,7 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification, TypeApplications #-}
 module Pure.Theme
   ( Themeable(..)
+  , Namespace(..)
   , themed
   , pattern Theme
   , SomeT(..)
@@ -10,7 +11,7 @@ module Pure.Theme
 import Pure
 
 -- from pure-css
-import Pure.Data.CSS
+import Pure.Data.CSS hiding (Namespace)
 
 -- from pure-txt-trie
 import Pure.Data.Txt.Trie as Trie
@@ -32,9 +33,25 @@ import Debug.Trace
 activeThemes :: IORef (TxtTrie ())
 activeThemes = unsafePerformIO $ newIORef Trie.empty
 
+pTyCon :: Typeable t => Proxy t -> TyCon
+pTyCon = typeRepTyCon . pTypeOf
+
+pTypeOf :: forall t. Typeable t => Proxy t -> TypeRep
+pTypeOf _ = typeOf (undefined :: t)
+
+typeHash :: forall t. Typeable t => Namespace t
+typeHash =
+  Namespace $
+       toTxt (show (pTyCon (Proxy :: Proxy t)))
+    <> "_"
+    <> toTxt (abs (hash (pTypeOf (Proxy :: Proxy t))))
+
+newtype Namespace t = Namespace Txt
+
 class Typeable t => Themeable t where
-  namespace :: t -> Txt
-  namespace _ = toTxt (tyCon (undefined :: t)) <> "_" <> toTxt (abs $ hash (typeOf (undefined :: t)))
+  namespace :: Namespace t
+  namespace = typeHash
+
   theme :: Txt -> t -> CSS ()
   theme _ _ = return ()
 
@@ -42,15 +59,15 @@ class Typeable t => Themeable t where
 addTheme :: Themeable t => Txt -> t -> ()
 addTheme pre t = unsafePerformIO $ do
   let p = "." <> pre
-  tw <- atomicModifyIORef' activeThemes $ \trie -> 
+  tw <- atomicModifyIORef' activeThemes $ \trie ->
           if Trie.lookup pre trie == Just ()
             then (trie,True)
             else (Trie.insert pre () trie,False)
   unless tw $ inject Pure.head (Attribute "data-pure-theme" pre (css (theme p t)))
 
-themed_ :: (Themeable t, HasFeatures b) => t -> b -> (Txt,b)
-themed_ t b = 
-  let pre = namespace t
+themed_ :: forall t b. (Themeable t, HasFeatures b) => t -> b -> (Txt,b)
+themed_ t b =
+  let Namespace pre = namespace @t
   in addTheme pre t `seq` (pre,Class pre b)
 
 themed :: (Themeable t, HasFeatures b) => t -> b -> b
