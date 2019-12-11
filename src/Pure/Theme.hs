@@ -6,6 +6,11 @@ module Pure.Theme
   , pattern Theme
   , SomeT(..)
   , module Pure.Data.CSS
+  , void
+  , for_
+  , traverse_
+  , for
+  , traverse
   ) where
 
 -- from pure
@@ -21,6 +26,7 @@ import Pure.Data.Txt.Trie as Trie
 import Control.Arrow ((&&&))
 import Control.Monad
 import Data.Foldable
+import Data.Traversable
 import Data.IORef
 import Data.Monoid
 import Data.Typeable
