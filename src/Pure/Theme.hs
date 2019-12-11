@@ -5,6 +5,7 @@ module Pure.Theme
   , themed
   , pattern Theme
   , SomeT(..)
+  , module Pure.Data.CSS
   ) where
 
 -- from pure
