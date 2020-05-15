@@ -22,6 +22,7 @@ library
       base
     , pure
     , pure-css
+    , pure-styles
     , pure-txt-trie
     , hashable
 

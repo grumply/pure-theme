@@ -1,16 +1,23 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification, TypeApplications #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification, TypeApplications, AllowAmbiguousTypes, RoleAnnotations #-}
 module Pure.Theme
-  ( Themeable(..)
-  , Namespace(..)
+  ( Theme(..)
+  , pattern Themed
+  , hasTheme
   , themed
-  , pattern Theme
-  , SomeT(..)
+  , themedWith
+  , subtheme
+  , SomeTheme(..)
+  , mkSomeTheme
+  , someThemed
   , module Pure.Data.CSS
+  , module Pure.Data.Styles
+  , Monoid(..)
   , void
   , for_
   , traverse_
   , for
   , traverse
+  , (&)
   ) where
 
 -- from pure
@@ -19,6 +26,9 @@ import Pure
 -- from pure-css
 import Pure.Data.CSS hiding (Namespace)
 
+-- from pure-styles
+import Pure.Data.Styles
+
 -- from pure-txt-trie
 import Pure.Data.Txt.Trie as Trie
 
@@ -26,6 +36,7 @@ import Pure.Data.Txt.Trie as Trie
 import Control.Arrow ((&&&))
 import Control.Monad
 import Data.Foldable
+import Data.Function ((&))
 import Data.Traversable
 import Data.IORef
 import Data.Monoid
@@ -37,51 +48,58 @@ import Data.Hashable
 import Debug.Trace
 
 {-# NOINLINE activeThemes #-}
-activeThemes :: IORef (TxtTrie ())
+activeThemes :: IORef TxtSet
 activeThemes = unsafePerformIO $ newIORef Trie.empty
 
-pTyCon :: Typeable t => Proxy t -> TyCon
-pTyCon = typeRepTyCon . pTypeOf
-
-pTypeOf :: forall t. Typeable t => Proxy t -> TypeRep
-pTypeOf _ = typeOf (undefined :: t)
-
-typeHash :: forall t. Typeable t => Namespace t
-typeHash =
-  Namespace $
-       toTxt (show (pTyCon (Proxy :: Proxy t)))
-    <> "_"
-    <> toTxt (abs (hash (pTypeOf (Proxy :: Proxy t))))
+qualifiedNamespace :: forall t. Typeable t => Txt
+qualifiedNamespace = 
+  let pto  = typeOf (undefined :: t)
+      th   = abs (hash pto)
+      trtc = typeRepTyCon pto
+  in toTxt (show trtc <> "_" <> show th)
 
 newtype Namespace t = Namespace Txt
+type role Namespace nominal
 
-class Typeable t => Themeable t where
+class Typeable t => Theme t where
   namespace :: Namespace t
-  namespace = typeHash
+  namespace = Namespace (qualifiedNamespace @t)
 
-  theme :: Txt -> t -> CSS ()
-  theme _ _ = return ()
+  theme :: forall t. Txt -> CSS ()
+  theme _ = return ()
 
 {-# NOINLINE addTheme #-}
-addTheme :: Themeable t => Txt -> t -> ()
-addTheme pre t = unsafePerformIO $ do
+addTheme :: forall t. Theme t => Txt -> ()
+addTheme pre = unsafePerformIO $ do
   let p = "." <> pre
   tw <- atomicModifyIORef' activeThemes $ \trie ->
           if Trie.lookup pre trie == Just ()
             then (trie,True)
             else (Trie.insert pre () trie,False)
-  unless tw $ inject Pure.head (Attribute "data-pure-theme" pre (css (theme p t)))
+  unless tw $ inject Pure.head (Attribute "data-pure-theme" pre (css (theme @t p)))
 
-themed_ :: forall t b. (Themeable t, HasFeatures b) => t -> b -> (Txt,b)
-themed_ t b =
-  let Namespace pre = namespace @t
-  in addTheme pre t `seq` (pre,Class pre b)
+hasTheme :: forall t b. (Theme t, HasFeatures b) => b -> Bool
+hasTheme (Classes cs b) = let Namespace t = namespace @t in t `elem` cs
 
-themed :: (Themeable t, HasFeatures b) => t -> b -> b
-themed t b = snd $ themed_ t b
+themedWith :: forall t b. (Theme t, HasFeatures b) => Namespace t -> b -> b
+themedWith _ = Themed @t
 
-pattern Theme :: (HasFeatures b, Themeable t) => t -> b -> b
-pattern Theme t b <- (const undefined &&& id -> (t,b)) where
-  Theme t b = themed t b
+themed :: forall t b. (Theme t, HasFeatures b) => t -> b -> b
+themed _ = Themed @t
 
-data SomeT = forall t. Themeable t => SomeT t
+pattern Themed :: forall t b. (HasFeatures b, Theme t) => b -> b
+pattern Themed b <- (hasTheme @t &&& id -> (True,b)) where
+  Themed b =
+    let Namespace pre = namespace @t
+    in addTheme @t pre `seq` Class pre b
+
+subtheme :: forall t. Theme t => Txt
+subtheme = let Namespace t = namespace @t in "." <> t
+
+data SomeTheme = forall t. Theme t => SomeTheme (Namespace t)
+
+mkSomeTheme :: forall t. Theme t => SomeTheme
+mkSomeTheme = SomeTheme (namespace @t)
+
+someThemed :: (HasFeatures b) => SomeTheme -> b -> b
+someThemed (SomeTheme ns) = themedWith ns
