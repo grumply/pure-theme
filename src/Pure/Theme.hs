@@ -20,14 +20,24 @@ module Pure.Theme
   , (&)
   ) where
 
--- from pure
-import Pure
+-- from pure-core
+import Pure.Data.View
+import Pure.Data.View.Patterns
+
+-- from pure-dom
+import Pure.DOM (inject)
 
 -- from pure-css
-import Pure.Data.CSS hiding (Namespace)
+import Pure.Data.CSS hiding (Namespace,empty,select)
+
+-- from pure-lifted
+import Pure.Data.Lifted as Lifted (head)
 
 -- from pure-styles
 import Pure.Data.Styles
+
+-- from pure-txt
+import Pure.Data.Txt
 
 -- from pure-txt-trie
 import Pure.Data.Txt.Trie as Trie
@@ -76,7 +86,7 @@ addTheme pre = unsafePerformIO $ do
           if Trie.lookup pre trie == Just ()
             then (trie,True)
             else (Trie.insert pre () trie,False)
-  unless tw $ inject Pure.head (Attribute "data-pure-theme" pre (css (theme @t p)))
+  unless tw $ inject Lifted.head (Attribute "data-pure-theme" pre (css (theme @t p)))
 
 hasTheme :: forall t b. (Theme t, HasFeatures b) => b -> Bool
 hasTheme (Classes cs b) = let Namespace t = namespace @t in t `elem` cs

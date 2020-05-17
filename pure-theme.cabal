@@ -20,9 +20,12 @@ library
 
   build-depends:
       base
-    , pure
+    , pure-core
     , pure-css
+    , pure-dom
+    , pure-lifted
     , pure-styles
+    , pure-txt
     , pure-txt-trie
     , hashable
 
