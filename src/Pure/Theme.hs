@@ -37,7 +37,7 @@ import Pure.Data.Lifted as Lifted (head)
 import Pure.Data.Styles
 
 -- from pure-txt
-import Pure.Data.Txt
+import Pure.Data.Txt as Txt
 
 -- from pure-txt-trie
 import Pure.Data.Txt.Trie as Trie
@@ -48,6 +48,7 @@ import Control.Monad
 import Data.Foldable
 import Data.Function ((&))
 import Data.Traversable
+import Data.List as List
 import Data.IORef
 import Data.Monoid
 import Data.Typeable
@@ -61,19 +62,23 @@ import Debug.Trace
 activeThemes :: IORef TxtSet
 activeThemes = unsafePerformIO $ newIORef Trie.empty
 
-qualifiedNamespace :: forall t. Typeable t => Txt
-qualifiedNamespace = 
-  let pto  = typeOf (undefined :: t)
-      th   = abs (hash pto)
-      trtc = typeRepTyCon pto
-  in toTxt (show trtc <> "_" <> show th)
+{-# INLINE rep #-}
+rep :: forall p. (Typeable p) => Txt
+rep = Txt.filter nonQuote (Txt.intercalate "_" [go (typeOf (undefined :: p)), toTxt th])
+  where
+    nonQuote x = x /= '\'' && x /= '\"'
+    th = abs (hash (typeOf (undefined :: p)))
+    go tr =
+      let tc = toTxt (show (typeRepTyCon tr))
+          trs = typeRepArgs tr
+      in Txt.intercalate "_" (tc : fmap go trs)
 
 newtype Namespace t = Namespace Txt
 type role Namespace nominal
 
 class Typeable t => Theme t where
   namespace :: Namespace t
-  namespace = Namespace (qualifiedNamespace @t)
+  namespace = Namespace (rep @t)
 
   theme :: forall t. Txt -> CSS ()
   theme _ = return ()
