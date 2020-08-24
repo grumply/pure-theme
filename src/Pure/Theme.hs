@@ -2,10 +2,13 @@
 module Pure.Theme
   ( Theme(..)
   , pattern Themed
+  , pattern Customized
   , hasTheme
   , themed
   , themedWith
   , subtheme
+  , embed
+  , Custom(..)
   , SomeTheme(..)
   , mkSomeTheme
   , someThemed
@@ -111,6 +114,9 @@ pattern Themed b <- (hasTheme @t &&& id -> (True,b)) where
 subtheme :: forall t. Theme t => Txt
 subtheme = let Namespace t = namespace @t in "." <> t
 
+embed :: forall sub. Theme sub => CSS ()
+embed = let Namespace ns = namespace @sub in theme @sub ns
+
 data SomeTheme = forall t. Theme t => SomeTheme (Namespace t)
 
 mkSomeTheme :: forall t. Theme t => SomeTheme
@@ -118,3 +124,13 @@ mkSomeTheme = SomeTheme (namespace @t)
 
 someThemed :: (HasFeatures b) => SomeTheme -> b -> b
 someThemed (SomeTheme ns) = themedWith ns
+
+data Custom a
+
+pattern Customized :: forall t b. (HasFeatures b, Theme t, Theme (Custom t)) => b -> b
+pattern Customized b <- (((&&) <$> hasTheme @(Custom t) <*> hasTheme @t) &&& id -> (True,b)) where
+  Customized b =
+    let Namespace t = namespace @t
+        Namespace e = namespace @(Custom t)
+    in addTheme @t t `seq` addTheme @(Custom t) e `seq` Class e (Class t b)
+
