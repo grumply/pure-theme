@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification, TypeApplications, AllowAmbiguousTypes, RoleAnnotations #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification, TypeApplications, AllowAmbiguousTypes, RoleAnnotations, DataKinds, PolyKinds #-}
 module Pure.Theme
   ( Theme(..)
   , pattern Themed
@@ -67,10 +67,10 @@ activeThemes = unsafePerformIO $ newIORef Trie.empty
 
 {-# INLINE rep #-}
 rep :: forall p. (Typeable p) => Txt
-rep = Txt.filter nonQuote (Txt.intercalate "_" [go (typeOf (undefined :: p)), toTxt th])
+rep = Txt.filter nonQuote (Txt.intercalate "_" [go (typeRep (Proxy :: Proxy p)), toTxt th])
   where
     nonQuote x = x /= '\'' && x /= '\"'
-    th = abs (hash (typeOf (undefined :: p)))
+    th = abs (hash (typeRep (Proxy :: Proxy p)))
     go tr =
       let tc = toTxt (show (typeRepTyCon tr))
           trs = typeRepArgs tr
