@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables, FlexibleContexts, PatternSynonyms, ViewPatterns, TupleSections, ExistentialQuantification, TypeApplications, AllowAmbiguousTypes, RoleAnnotations, DataKinds, PolyKinds #-}
 module Pure.Theme
   ( Theme(..)
   , pattern Themed
@@ -8,6 +7,9 @@ module Pure.Theme
   , themedWith
   , subtheme
   , embed
+  , addTheme
+  , addThemeClass
+  , removeThemeClass
   , Custom(..)
   , SomeTheme(..)
   , mkSomeTheme
@@ -34,7 +36,7 @@ import Pure.DOM (inject)
 import Pure.Data.CSS hiding (Namespace,empty,select)
 
 -- from pure-lifted
-import Pure.Data.Lifted as Lifted (head)
+import Pure.Data.Lifted as Lifted (JSV,Node,head)
 
 -- from pure-styles
 import Pure.Data.Styles
@@ -48,6 +50,7 @@ import Pure.Data.Txt.Trie as Trie
 -- from base
 import Control.Arrow ((&&&))
 import Control.Monad
+import Data.Coerce
 import Data.Foldable
 import Data.Function ((&))
 import Data.Traversable
@@ -86,10 +89,15 @@ class Typeable t => Theme t where
   theme :: forall t. Txt -> CSS ()
   theme _ = return ()
 
-{-# NOINLINE addTheme #-}
-addTheme :: forall t. Theme t => Txt -> ()
-addTheme pre = unsafePerformIO $ do
-  let p = "." <> pre
+{-# NOINLINE addThemeUnsafe #-}
+addThemeUnsafe :: forall t. Theme t => ()
+addThemeUnsafe = unsafePerformIO (addTheme @t)
+
+addTheme :: forall t. Theme t => IO ()
+addTheme = do
+  let 
+    Namespace pre = namespace @t
+    p = "." <> pre
   tw <- atomicModifyIORef' activeThemes $ \trie ->
           if Trie.lookup pre trie == Just ()
             then (trie,True)
@@ -109,7 +117,7 @@ pattern Themed :: forall t b. (HasFeatures b, Theme t) => b -> b
 pattern Themed b <- (hasTheme @t &&& id -> (True,b)) where
   Themed b =
     let Namespace pre = namespace @t
-    in addTheme @t pre `seq` Class pre b
+    in addThemeUnsafe @t `seq` Class pre b
 
 subtheme :: forall t. Theme t => Txt
 subtheme = let Namespace t = namespace @t in "." <> t
@@ -132,5 +140,38 @@ pattern Customized b <- (((&&) <$> hasTheme @(Custom t) <*> hasTheme @t) &&& id 
   Customized b =
     let Namespace t = namespace @t
         Namespace e = namespace @(Custom t)
-    in addTheme @t t `seq` addTheme @(Custom t) e `seq` Class e (Class t b)
+    in addThemeUnsafe @t `seq` 
+       addThemeUnsafe @(Custom t) `seq` 
+       Class e (Class t b)
 
+addThemeClass :: forall t. Theme t => Node -> IO ()
+addThemeClass n = addTheme @t >> addClass n (Txt.tail (subtheme @t))
+
+removeThemeClass :: forall t. Theme t => Node -> IO ()
+removeThemeClass n = removeClass n (Txt.tail (subtheme @t))
+
+#ifdef __GHCJS__
+foreign import javascript unsafe
+    "$1.classList.add($2)" addClass_js :: Node -> Txt -> IO ()
+#endif
+
+addClass :: Node -> Txt -> IO ()
+addClass n c =
+#ifdef __GHCJS__
+    addClass_js n c
+#else
+    return ()
+#endif
+
+#ifdef __GHCJS__
+foreign import javascript unsafe
+    "$1.classList.remove($2)" removeClass_js :: Node -> Txt -> IO ()
+#endif
+
+removeClass :: Node -> Txt -> IO ()
+removeClass n c =
+#ifdef __GHCJS__
+    removeClass_js n c
+#else
+    return ()
+#endif
