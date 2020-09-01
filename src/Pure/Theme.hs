@@ -9,7 +9,9 @@ module Pure.Theme
   , embed
   , addTheme
   , addThemeClass
+  , addSomeThemeClass
   , removeThemeClass
+  , removeSomeThemeClass
   , Custom(..)
   , SomeTheme(..)
   , mkSomeTheme
@@ -144,6 +146,25 @@ pattern Customized b <- (((&&) <$> hasTheme @(Custom t) <*> hasTheme @t) &&& id 
        addThemeUnsafe @(Custom t) `seq` 
        Class e (Class t b)
 
+-- Adding and removing themes is designed to work with multiple theme sources.
+-- That is, two components manually adding themes to a node can coexist without
+-- removing each other's themes from the node. But, these themes are not managed
+-- as themes applied with Themed; it is the user's responsibility to manage when
+-- the theme is added and removed.
+
+addSomeThemeClass :: SomeTheme -> Node -> IO ()
+addSomeThemeClass st n = 
+  case st of
+    SomeTheme ns@(Namespace c) -> do
+      addThemeFromNamespace ns
+      addClass n c
+  where
+    addThemeFromNamespace :: forall t. Theme t => Namespace t -> IO ()
+    addThemeFromNamespace _ = addTheme @t
+
+removeSomeThemeClass :: SomeTheme -> Node -> IO ()
+removeSomeThemeClass (SomeTheme (Namespace c)) n = removeClass n c
+
 addThemeClass :: forall t. Theme t => Node -> IO ()
 addThemeClass n = addTheme @t >> addClass n (Txt.tail (subtheme @t))
 
@@ -152,26 +173,26 @@ removeThemeClass n = removeClass n (Txt.tail (subtheme @t))
 
 #ifdef __GHCJS__
 foreign import javascript unsafe
-    "$1.classList.add($2)" addClass_js :: Node -> Txt -> IO ()
+    "if ($1) { $1['data-pure-theme-list'] = ($1['data-pure-theme-list'] || '')['concat'](' ',$2); $1['classList']['add']($2) }" add_class_js :: Node -> Txt -> IO ()
 #endif
 
 addClass :: Node -> Txt -> IO ()
 addClass n c =
 #ifdef __GHCJS__
-    addClass_js n c
+    add_class_js n c
 #else
     return ()
 #endif
 
 #ifdef __GHCJS__
 foreign import javascript unsafe
-    "$1.classList.remove($2)" removeClass_js :: Node -> Txt -> IO ()
+    "if ($1) { var l = ($1['data-pure-theme-list'] || '')['trim']()['split'](' '); var idx = l['findIndex'](function (p) { return p === $2; }); if (idx >= 0) { l.splice(idx,1) }; $1['data-pure-theme-list'] = l.join(' '); if (l['findIndex'](function (p) { return p === $2; }) < 0) { $1['classList']['remove']($2); } }" remove_class_js :: Node -> Txt -> IO ()
 #endif
 
 removeClass :: Node -> Txt -> IO ()
 removeClass n c =
 #ifdef __GHCJS__
-    removeClass_js n c
+    remove_class_js n c
 #else
     return ()
 #endif
