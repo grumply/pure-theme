@@ -6,6 +6,8 @@ module Pure.Theme
   , themed
   , themedWith
   , subtheme
+  , at
+  , at'
   , embed
   , addTheme
   , addThemeClass
@@ -123,6 +125,12 @@ pattern Themed b <- (hasTheme @t &&& id -> (True,b)) where
 
 subtheme :: forall t. Theme t => Txt
 subtheme = let Namespace t = namespace @t in "." <> t
+
+at :: forall t a. Theme t => CSS a -> CSS ()
+at = is (subtheme @t)
+
+at' :: forall t a. Theme t => CSS a -> CSS a
+at' = is' (subtheme @t)
 
 embed :: forall sub. Theme sub => CSS ()
 embed = let Namespace ns = namespace @sub in theme @sub ns
