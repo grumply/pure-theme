@@ -8,6 +8,8 @@ module Pure.Theme
   , subtheme
   , at
   , at'
+  , within
+  , within'
   , embed
   , addTheme
   , addThemeClass
@@ -37,7 +39,7 @@ import Pure.Data.View.Patterns
 import Pure.DOM (inject)
 
 -- from pure-css
-import Pure.Data.CSS hiding (Namespace,empty,select)
+import Pure.Data.CSS hiding (Namespace,empty,select,wrap)
 
 -- from pure-lifted
 import Pure.Data.Lifted as Lifted (JSV,Node,head)
@@ -131,6 +133,14 @@ at = is (subtheme @t)
 
 at' :: forall t a. Theme t => CSS a -> CSS a
 at' = is' (subtheme @t)
+
+within :: forall t a. Theme t => CSS a -> CSS ()
+within = void . within' @t
+
+within' :: forall t a. Theme t => CSS a -> CSS a
+within' block = do
+  s <- scope
+  rescope (subtheme @t <> " " <> s) block
 
 embed :: forall sub. Theme sub => CSS ()
 embed = let Namespace ns = namespace @sub in theme @sub ns
