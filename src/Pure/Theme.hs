@@ -108,7 +108,10 @@ addTheme = do
           if Trie.lookup pre trie == Just ()
             then (trie,True)
             else (Trie.insert pre () trie,False)
-  unless tw $ inject Lifted.head (Attribute "data-pure-theme" pre (css (theme @t p)))
+  unless tw $
+    case css (theme @t p) of
+      Children [ LazyView f a ] _ | TextView _ "" <- f a -> pure ()
+      content -> inject Lifted.head (Attribute "data-pure-theme" pre content)
 
 hasTheme :: forall t b. (Theme t, HasFeatures b) => b -> Bool
 hasTheme (Classes cs b) = let Namespace t = namespace @t in t `elem` cs
