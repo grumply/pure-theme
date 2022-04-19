@@ -8,6 +8,8 @@ module Pure.Theme
   , subtheme
   , at
   , at'
+  , nest
+  , nest'
   , within
   , within'
   , embed
@@ -128,6 +130,9 @@ pattern Themed b <- (hasTheme @t &&& id -> (True,b)) where
     let Namespace pre = namespace @t
     in addThemeUnsafe @t `seq` Class pre b
 
+include :: forall a. Theme a => CSS ()
+include = theme @a ""
+
 subtheme :: forall t. Theme t => Txt
 subtheme = let Namespace t = namespace @t in "." <> t
 
@@ -136,6 +141,12 @@ at = is (subtheme @t)
 
 at' :: forall t a. Theme t => CSS a -> CSS a
 at' = is' (subtheme @t)
+
+nest :: forall t a. Theme t => CSS a -> CSS ()
+nest = void . nest' @t
+
+nest' :: forall t a. Theme t => CSS a -> CSS a
+nest' = has' (subtheme @t)
 
 within :: forall t a. Theme t => CSS a -> CSS ()
 within = void . within' @t
