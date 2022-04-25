@@ -6,12 +6,10 @@ module Pure.Theme
   , themed
   , themedWith
   , subtheme
-  , at
-  , at'
-  , nest
-  , nest'
-  , within
-  , within'
+  , and, and'
+  , at, at'
+  , nest, nest'
+  , within, within'
   , embed
   , addTheme
   , addThemeClass
@@ -31,6 +29,16 @@ module Pure.Theme
   , for
   , traverse
   , (&)
+  , (^.)
+  , (^-)
+  , (^&)
+  , (^>)
+  , (^+)
+  , (^*)
+  , (^^)
+  , (^$)
+  , (^%)
+  , (^#)
   ) where
 
 -- from pure-core
@@ -59,10 +67,10 @@ import Pure.Data.Txt.Trie as Trie
 import Control.Arrow ((&&&))
 import Control.Monad
 import Data.Coerce
-import Data.Foldable
+import Data.Foldable hiding (and,or)
 import Data.Function ((&))
 import Data.Traversable
-import Data.List as List
+import Data.List as List hiding (and,or)
 import Data.IORef
 import Data.Monoid
 import Data.Typeable
@@ -71,6 +79,8 @@ import System.IO.Unsafe
 
 import Data.Hashable
 import Debug.Trace
+
+import Prelude hiding (and,or,(^^))
 
 {-# NOINLINE activeThemes #-}
 activeThemes :: IORef TxtSet
@@ -90,11 +100,13 @@ rep = Txt.filter nonQuote (Txt.intercalate "_" [go (typeRep (Proxy :: Proxy p)),
 newtype Namespace t = Namespace Txt
 type role Namespace nominal
 
-class Typeable t => Theme t where
+class Theme t where
   namespace :: Namespace t
+  default namespace :: Typeable t => Namespace t
   namespace = Namespace (rep @t)
 
   theme :: forall t. Txt -> CSS ()
+  default theme :: Txt -> CSS ()
   theme _ = return ()
 
 {-# NOINLINE addThemeUnsafe #-}
@@ -136,17 +148,53 @@ include = theme @a ""
 subtheme :: forall t. Theme t => Txt
 subtheme = let Namespace t = namespace @t in "." <> t
 
+(^.) :: forall t a. Theme t => CSS a -> CSS ()
+(^.) = and @t
+
+(^-) :: forall t a. Theme t => CSS a -> CSS ()
+(^-) = isn't (subtheme @t)
+
+(^&) :: forall t a. Theme t => CSS a -> CSS ()
+(^&) = at @t
+
+(^>) :: forall t a. Theme t => CSS a -> CSS ()
+(^>) = nest @t
+
+(^+) :: forall t a. Theme t => CSS a -> CSS ()
+(^+) = next (subtheme @t)
+
+(^*) :: forall t a. Theme t => CSS a -> CSS ()
+(^*) = nexts (subtheme @t)
+
+(^^) :: forall t a. Theme t => CSS a -> CSS ()
+(^^) = within @t
+
+(^$) :: Txt -> CSS a -> CSS ()
+(^$) = atMedia
+
+(^%) :: Txt -> CSS a -> CSS ()
+(^%) = atKeyframes
+
+(^#) :: Txt -> CSS a -> CSS ()
+(^#) = atFontFace
+
+and :: forall t a. Theme t => CSS a -> CSS ()
+and = void . and' @t
+
+and' :: forall t a. Theme t => CSS a -> CSS a
+and' = is' (subtheme @t)
+
 at :: forall t a. Theme t => CSS a -> CSS ()
-at = is (subtheme @t)
+at = void . at' @t
 
 at' :: forall t a. Theme t => CSS a -> CSS a
-at' = is' (subtheme @t)
+at' = has' (subtheme @t)
 
 nest :: forall t a. Theme t => CSS a -> CSS ()
 nest = void . nest' @t
 
 nest' :: forall t a. Theme t => CSS a -> CSS a
-nest' = has' (subtheme @t)
+nest' = child' (subtheme @t)
 
 within :: forall t a. Theme t => CSS a -> CSS ()
 within = void . within' @t
