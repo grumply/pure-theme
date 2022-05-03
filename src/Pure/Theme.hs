@@ -49,7 +49,7 @@ import Pure.Data.View.Patterns
 import Pure.DOM (inject)
 
 -- from pure-css
-import Pure.Data.CSS hiding (Namespace,empty,select,wrap)
+import Pure.Data.CSS hiding (Namespace,empty,select,wrap,checked)
 
 -- from pure-lifted
 import Pure.Data.Lifted as Lifted (JSV,Node,head)
